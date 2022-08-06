@@ -1,73 +1,85 @@
-import { loadStdlib } from '@reach-sh/stdlib';
-import * as backend from './build/index.main.mjs';
-import { ask } from '@reach-sh/stdlib/ask.mjs';
-const stdlib = loadStdlib(process.env);
-
-const startingBalance = stdlib.parseCurrency(100);
-const accAlice = await stdlib.newTestAccount(startingBalance)
-const accBobs = await stdlib.newTestAccounts(6, startingBalance);
-const GreenNFT = await stdlib.launchToken(accAlice, "GreenNFT", "GNFT1", { supply: 1 });
-
-const ctcAlice = accAlice.contract(backend);
-
-const showTokenBalance = async (acc, name) => {
-    const amtNFT = await stdlib.balanceOf(acc, GreenNFT.id);
-    console.log(`${name} has ${amtNFT} of the NFT`);
-};
-const ctcWho = (who) =>
-    who.contract(backend, ctcAlice.getInfo());
-
-const Bobs = async (whoi, num) => {
-    try {
-        const ctc = ctcWho(whoi);
-        whoi.tokenAccept(GreenNFT.id)
-        const ticket = parseInt(num)
-        await ctc.apis.Bob.bobticketnumber(ticket);
-
-    } catch (error) {
-        console.log(error);
+'reach 0.1';
+const [isOutcome, WINNER, NOWINNER] = makeEnum(2)
+const getwinner = (num1, num2) => {
+    if (num1 === num2) {
+        return WINNER
+    } else {
+        return NOWINNER
     }
-
 }
+assert(getwinner(0, 0) == WINNER)
+assert(getwinner(1, 2) == NOWINNER)
+export const main = Reach.App(() => {
+    const Alice = Participant('Alice', {
+        ...hasRandom,
+        nft: Token,
+        hashvalue: Fun([Digest], Null),
+        winner: UInt,
+        numberoftickets: Fun([], UInt)
+    });
+    const Bob = API('Bob', {
+        bobticketnumber: Fun([UInt], Null)
+    });
+    init();
 
+    Alice.only(() => {
+        const nftid = declassify(interact.nft)
+        const NOTs = declassify(interact.numberoftickets())
+    })
+    Alice.publish(nftid, NOTs)
+    commit()
+    Alice.only(() => {
+        const _winnernumber = interact.winner
+        const [_commitwinnernumber, _saltwinnernumber] = makeCommitment(interact, _winnernumber)
+        const commitwinnernumber = declassify(_commitwinnernumber)
+    })
+    Alice.publish(commitwinnernumber)
+    commit()
 
-console.log('Starting backends...');
-await showTokenBalance(accAlice, 'Alice')
-await showTokenBalance(accBobs[0], 'Nick')
-await showTokenBalance(accBobs[1], 'chikamso')
-await showTokenBalance(accBobs[2], 'Dera')
-await showTokenBalance(accBobs[3], 'jeffery')
-await showTokenBalance(accBobs[4], 'darren')
-await showTokenBalance(accBobs[5], 'steve')
-const winnumber = await ask('what is the winning number')
-const numofticks = await ask('what is the max amount of ticket entries: ')
-await Promise.all([
-    backend.Alice(ctcAlice, {
-        ...stdlib.hasRandom,
-        nft: GreenNFT.id,
-        winner: parseInt(winnumber),
-        hashvalue: async (hashvalue) => {
-            console.log(` The hashed value of winning number: ${hashvalue}`)
-        },
-        numberoftickets: async () => {
-            console.log(` Max amount of tucket enteries is ${numofticks}`)
-            return parseInt(numofticks)
-        },
-    }),
-    await Bobs(accBobs[0], 21),
-    await Bobs(accBobs[1], 57),
-    await Bobs(accBobs[2], 13),
-    await Bobs(accBobs[3], 45),
-    await Bobs(accBobs[4], 33),
-    await Bobs(accBobs[5], 36)
-]);
-await showTokenBalance(accAlice, 'Alice')
-await showTokenBalance(accBobs[0], 'Nick')
-await showTokenBalance(accBobs[1], 'chikamso')
-await showTokenBalance(accBobs[2], 'Dera')
-await showTokenBalance(accBobs[3], 'jeffery')
-await showTokenBalance(accBobs[4], 'darren')
-await showTokenBalance(accBobs[5], 'steve')
+    Alice.only(() => {
+        const viewhash = declassify(interact.hashvalue(commitwinnernumber))
+    })
+    Alice.publish(viewhash)
+    const addresstorage = new Map(Address, UInt)
+    const [i, addresses, ticketsnumbers] =
+        parallelReduce([0, Array_replicate(6, Alice), Array_replicate(6, 1)])
+            .invariant(balance(nftid) == 0)
+            .while(i < 6)
+            .api(
+                Bob.bobticketnumber,
+                (tn, k) => {
+                    k(null)
+                    const who = this
+                    addresstorage[who] = tn
+                    return [i + 1, addresses.set(i, this), ticketsnumbers.set(i, tn)]
+                }
+            )
+    commit()
+    Alice.only(() => {
+        const saltwinnernumber = declassify(_saltwinnernumber)
+        const winnernumber = declassify(_winnernumber)
+    })
+    Alice.publish(saltwinnernumber, winnernumber)
+    checkCommitment(commitwinnernumber, saltwinnernumber, winnernumber)
+    var [users, api_addresses, api_ticketnumbers] = [0, addresses, ticketsnumbers]
+    invariant(balance(nftid) == 0)
+    while (users < 6) {
+        commit()
+        Alice.publish()
+        const outcome = getwinner(winnernumber, api_ticketnumbers[users])
+        if (outcome == WINNER) {
+            commit()
+            Alice.pay([[1, nftid]])
+            transfer([[1, nftid]]).to(api_addresses[users])
+            users = users + 1
+            continue
+        } else {
+            users = users + 1
+            continue
+        }
 
-
-process.exit()
+    }
+    transfer(balance()).to(Alice)
+    commit()
+    exit();
+});
