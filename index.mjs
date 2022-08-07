@@ -16,12 +16,12 @@ const showTokenBalance = async (acc, name) => {
 };
 const ctcWho = (who) =>
     who.contract(backend, ctcAlice.getInfo());
-
+const numofticks = await ask('what is the max amount of ticket entries: ')
 const Bobs = async (whoi, num) => {
     try {
         const ctc = ctcWho(whoi);
         whoi.tokenAccept(GreenNFT.id)
-        const ticket = parseInt(num)
+        const ticket = Math.floor(Math.random() * parseInt(numofticks))
         await ctc.apis.Bob.bobticketnumber(ticket);
 
     } catch (error) {
@@ -40,7 +40,6 @@ await showTokenBalance(accBobs[3], 'jeffery')
 await showTokenBalance(accBobs[4], 'darren')
 await showTokenBalance(accBobs[5], 'steve')
 const winnumber = await ask('what is the winning number')
-const numofticks = await ask('what is the max amount of ticket entries: ')
 await Promise.all([
     backend.Alice(ctcAlice, {
         ...stdlib.hasRandom,
@@ -50,16 +49,16 @@ await Promise.all([
             console.log(` The hashed value of winning number: ${hashvalue}`)
         },
         numberoftickets: async () => {
-            console.log(` Max amount of tucket enteries is ${numofticks}`)
+            console.log(` Max ticket number enteries is ${numofticks}`)
             return parseInt(numofticks)
         },
     }),
-    await Bobs(accBobs[0], 21),
-    await Bobs(accBobs[1], 57),
-    await Bobs(accBobs[2], 13),
-    await Bobs(accBobs[3], 45),
-    await Bobs(accBobs[4], 33),
-    await Bobs(accBobs[5], 36)
+    await Bobs(accBobs[0]),
+    await Bobs(accBobs[1]),
+    await Bobs(accBobs[2]),
+    await Bobs(accBobs[3]),
+    await Bobs(accBobs[4]),
+    await Bobs(accBobs[5])
 ]);
 await showTokenBalance(accAlice, 'Alice')
 await showTokenBalance(accBobs[0], 'Nick')
